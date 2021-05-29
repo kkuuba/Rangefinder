@@ -2,6 +2,8 @@ import RPi.GPIO as GPIO
 import Adafruit_DHT
 import threading
 import time
+from datetime import datetime
+from storage import DataStorage
 
 
 class Sensors:
@@ -14,6 +16,7 @@ class Sensors:
         self.temperature = 22
         self.humidity = None
         self.distance = None
+        self.sensor_measurements = DataStorage("data.json")
         self.threads = []
         self.prepare_gpio_ports()
         self.start_sensor_agent()
@@ -28,6 +31,7 @@ class Sensors:
         while True:
             self._get_temperature_and_humidity()
             self._calculate_distance_based_on_temperature()
+            self._validate_distance_measurement()
 
     def prepare_gpio_ports(self):
         self.dht11_sensor = Adafruit_DHT.DHT11
@@ -52,10 +56,20 @@ class Sensors:
 
     def _get_temperature_and_humidity(self):
         self.humidity, self.temperature = Adafruit_DHT.read_retry(self.dht11_sensor, self.gpio_temp)
+        self.sensor_measurements.update_temperature_table(self.temperature)
+        self.sensor_measurements.update_humidity_table(self.humidity)
 
     def _calculate_distance_based_on_temperature(self):
         sound_speed = 331.5 + 0.6 * self.temperature
         self.distance = ((sound_speed * 100) * self._get_echo_time_from_hcsr04()) / 2
+
+    def _validate_distance_measurement(self):
+        if self.distance < 15:
+            self.distance = self.sensor_measurements.json_data["distance_measurements"][-1]
+            self.sensor_measurements.update_logs_table(
+                {datetime.now(): "distance measurement disturbed (result < 20 cm)"})
+        else:
+            self.sensor_measurements.update_distance_table(self.distance)
 
     def _wait_for_sensors_measure(self):
         measurements_ongoing = True

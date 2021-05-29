@@ -4,6 +4,7 @@ import logging
 import socketserver
 from threading import Condition
 from http import server
+from imageai.Detection import VideoObjectDetection
 
 PAGE = """\
 <html>
@@ -84,7 +85,15 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 with picamera.PiCamera(resolution='640x480', framerate=24) as camera:
     output = StreamingOutput()
     camera.iso = 1000  # good for night
-    camera.start_recording(output, format='mjpeg')
+    detector = VideoObjectDetection()
+    detector.setModelTypeAsYOLOv3()
+    detector.setModelPath("/home/kuba/Downloads/yolo.h5")
+    detector.loadModel()
+    # camera_vid = cv2.VideoCapture(0)
+    detector.detectObjectsFromVideo(camera_input=camera.start_recording(output, format='mjpeg'),
+                                    output_file_path="stream",
+                                    frames_per_second=29, log_progress=True)
+    # camera.start_recording(output, format='mjpeg')
     try:
         address = ('', 8000)
         server = StreamingServer(address, StreamingHandler)
