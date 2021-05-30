@@ -4,6 +4,7 @@ import logging
 import socketserver
 from threading import Condition
 from http import server
+from sensors import Sensors
 
 PAGE = """\
 <html>
@@ -83,8 +84,9 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
 
 with picamera.PiCamera(resolution='640x480', framerate=24) as camera:
     output = StreamingOutput()
-    camera.iso = 1000  # good for night
+    sensor_obj = Sensors()
     camera.start_recording(output, format='mjpeg')
+    camera.annotate_text = str(sensor_obj.distance)
     try:
         address = ('', 8000)
         server = StreamingServer(address, StreamingHandler)
