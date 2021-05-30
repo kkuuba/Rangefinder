@@ -7,14 +7,21 @@ from http import server
 from sensors import Sensors
 
 PAGE = """\
+<!DOCTYPE html>
 <html>
-<head>
-<title>picamera MJPEG streaming demo</title>
-</head>
-<body>
-<h1>PiCamera MJPEG Streaming Demo</h1>
-<img src="stream.mjpg" width="640" height="480" />
-</body>
+  <head>
+    <title>PiCamera RangeFinder</title>
+    <style>
+      .img-container {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="img-container"> <!-- Block parent element -->
+      <img src="stream.mjpg" width="640" height="480" alt="PiCamera RangeFinder">
+    </div>
+  </body>
 </html>
 """
 
@@ -82,14 +89,13 @@ class StreamingServer(socketserver.ThreadingMixIn, server.HTTPServer):
     daemon_threads = True
 
 
-with picamera.PiCamera(resolution='640x480', framerate=24) as camera:
-    output = StreamingOutput()
-    sensor_obj = Sensors()
-    camera.start_recording(output, format='mjpeg')
-    camera.annotate_text = str(sensor_obj.distance)
-    try:
-        address = ('', 8000)
-        server = StreamingServer(address, StreamingHandler)
-        server.serve_forever()
-    finally:
-        camera.stop_recording()
+camera = picamera.PiCamera(resolution='640x480', framerate=24)
+sensor_obj = Sensors(camera)
+output = StreamingOutput()
+camera.start_recording(output, format='mjpeg')
+try:
+    address = ('', 8000)
+    server = StreamingServer(address, StreamingHandler)
+    server.serve_forever()
+finally:
+    camera.stop_recording()

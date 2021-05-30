@@ -8,11 +8,12 @@ from storage import DataStorage
 
 class Sensors:
 
-    def __init__(self):
+    def __init__(self, camera_object):
         self.gpio_trigger = 18
         self.gpio_echo = 24
         self.gpio_temp = 17
         self.dht11_sensor = None
+        self.camera_obj = camera_object
         self.temperature = 22
         self.humidity = None
         self.distance = None
@@ -32,6 +33,7 @@ class Sensors:
             self._get_temperature_and_humidity()
             self._calculate_distance_based_on_temperature()
             self._validate_distance_measurement()
+            self.camera_obj.annotate_text = "{} m".format(str(round(self.distance) / 100))
 
     def prepare_gpio_ports(self):
         self.dht11_sensor = Adafruit_DHT.DHT11
