@@ -17,7 +17,7 @@ class Sensors:
         self.temperature = 22
         self.info_str = "Temp. {} deg                       {}m                      Humidity: {}%\n\n\n\n\n\n\n+"
         self.humidity = None
-        self.distance = None
+        self.distance = 10
         self.sensor_measurements = DataStorage("data.json")
         self.threads = []
         self.prepare_gpio_ports()
@@ -60,8 +60,14 @@ class Sensors:
 
     def _get_temperature_and_humidity(self):
         self.humidity, self.temperature = Adafruit_DHT.read_retry(self.dht11_sensor, self.gpio_temp)
-        self.sensor_measurements.update_temperature_table(self.temperature)
-        self.sensor_measurements.update_humidity_table(self.humidity)
+        if self.humidity and self.temperature:
+            self.sensor_measurements.update_temperature_table(self.temperature)
+            self.sensor_measurements.update_humidity_table(self.humidity)
+        else:
+            self.humidity = self.sensor_measurements.json_data["humidity_measurements"][-1]
+            self.temperature = self.sensor_measurements.json_data["temperature_measurements"][-1]
+            self.sensor_measurements.update_logs_table(
+                {str(datetime.now()): "temperature or humidity measurement error"})
 
     def _calculate_distance_based_on_temperature(self):
         sound_speed = 331.5 + 0.6 * self.temperature
@@ -73,6 +79,7 @@ class Sensors:
             self.sensor_measurements.update_logs_table(
                 {str(datetime.now()): "distance measurement disturbed (result < 20 cm)"})
         else:
+            self._adjust_measured_distance()
             self.sensor_measurements.update_distance_table(self.distance)
 
     def _wait_for_sensors_measure(self):
@@ -84,3 +91,16 @@ class Sensors:
                 measurements_ongoing = False
             else:
                 timer = timer + 1
+
+    def _adjust_measured_distance(self):
+        measurements = self.sensor_measurements.json_data["distance_measurements"]
+        if len(measurements) > 10:
+            avg_distance = sum(measurements) / len(measurements)
+            if not (0.7 * avg_distance < self.distance < 1.3 * avg_distance):
+                self.distance = measurements[-1]
+                self.sensor_measurements.update_logs_table(
+                    {str(datetime.now()): "distance measurement disturbed (result not consistent with recent result)"})
+            else:
+                pass
+        else:
+            pass
