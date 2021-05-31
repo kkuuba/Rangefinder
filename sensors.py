@@ -15,6 +15,7 @@ class Sensors:
         self.dht11_sensor = None
         self.camera_obj = camera_object
         self.temperature = 22
+        self.info_str = "Temp. {} deg                       {}m                      Humidity: {}%\n\n\n\n\n\n\n+"
         self.humidity = None
         self.distance = None
         self.sensor_measurements = DataStorage("data.json")
@@ -33,7 +34,8 @@ class Sensors:
             self._get_temperature_and_humidity()
             self._calculate_distance_based_on_temperature()
             self._validate_distance_measurement()
-            self.camera_obj.annotate_text = "{} m".format(str(round(self.distance) / 100))
+            self.camera_obj.annotate_text = self.info_str.format(self.temperature, str(round(self.distance) / 100),
+                                                                 self.humidity)
 
     def prepare_gpio_ports(self):
         self.dht11_sensor = Adafruit_DHT.DHT11
@@ -69,7 +71,7 @@ class Sensors:
         if self.distance < 15:
             self.distance = self.sensor_measurements.json_data["distance_measurements"][-1]
             self.sensor_measurements.update_logs_table(
-                {datetime.now(): "distance measurement disturbed (result < 20 cm)"})
+                {str(datetime.now()): "distance measurement disturbed (result < 20 cm)"})
         else:
             self.sensor_measurements.update_distance_table(self.distance)
 
@@ -82,11 +84,3 @@ class Sensors:
                 measurements_ongoing = False
             else:
                 timer = timer + 1
-
-
-sensor = Sensors()
-while True:
-    print(sensor.distance)
-    print(sensor.temperature)
-    print(sensor.humidity)
-    time.sleep(1)
