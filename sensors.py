@@ -21,10 +21,10 @@ class Sensors:
         self.adjust_distance_counter = 0
         self.sensor_measurements = DataStorage("data.json")
         self.threads = []
-        self.prepare_gpio_ports()
         self.start_sensor_agent()
 
     def start_sensor_agent(self):
+        self.prepare_gpio_ports()
         self.threads.append(threading.Thread(target=self.update_distance_temp_and_humidity, args=[]))
         self.threads[-1].daemon = True
         self.threads[-1].start()
@@ -69,6 +69,8 @@ class Sensors:
             self.temperature = self.sensor_measurements.json_data["temperature_measurements"][-1]
             self.sensor_measurements.update_logs_table(
                 {str(datetime.now()): "temperature or humidity measurement error"})
+            GPIO.cleanup()
+            self.start_sensor_agent()
 
     def _calculate_distance_based_on_temperature(self):
         sound_speed = 331.5 + 0.6 * self.temperature
@@ -81,6 +83,7 @@ class Sensors:
                 {str(datetime.now()): "distance measurement disturbed (result < 20 cm)"})
         else:
             self._adjust_measured_distance()
+            self._check_distance_change()
             self.sensor_measurements.update_distance_table(self.distance)
 
     def _wait_for_sensors_measure(self):
@@ -93,19 +96,19 @@ class Sensors:
             else:
                 timer = timer + 1
 
+    def _check_distance_change(self):
+        if self.adjust_distance_counter > 5:
+            self.sensor_measurements.reset_distance_table()
+            self.adjust_distance_counter = 0
+
     def _adjust_measured_distance(self):
         measurements = self.sensor_measurements.json_data["distance_measurements"]
         if len(measurements) > 10:
             avg_distance = sum(measurements) / len(measurements)
             if not (0.7 * avg_distance < self.distance < 1.3 * avg_distance):
-                self.adjust_distance_counter += 1
+                self.adjust_distance_counter = self.adjust_distance_counter + 1
                 self.distance = measurements[-1]
                 self.sensor_measurements.update_logs_table(
                     {str(datetime.now()): "distance measurement disturbed (result not consistent with recent data)"})
             else:
-                pass
-        elif self.adjust_distance_counter > 5:
-            self.sensor_measurements.reset_distance_table()
-            self.adjust_distance_counter = 0
-        else:
-            pass
+                self.adjust_distance_counter = 0
