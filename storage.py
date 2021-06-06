@@ -25,6 +25,11 @@ class DataStorage:
         self.json_data["distance_measurements"].append(measurement)
         self._update_file_content()
 
+    def reset_distance_table(self):
+        self._get_file_content()
+        self.json_data["distance_measurements"] = []
+        self._update_file_content()
+
     def update_temperature_table(self, measurement):
         self._get_file_content()
         self.json_data["temperature_measurements"].append(measurement)

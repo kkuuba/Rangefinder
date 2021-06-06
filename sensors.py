@@ -18,6 +18,7 @@ class Sensors:
         self.info_str = "Temp. {} deg                       {}m                      Humidity: {}%\n\n\n\n\n\n\n+"
         self.humidity = None
         self.distance = 10
+        self.adjust_distance_counter = 0
         self.sensor_measurements = DataStorage("data.json")
         self.threads = []
         self.prepare_gpio_ports()
@@ -97,10 +98,14 @@ class Sensors:
         if len(measurements) > 10:
             avg_distance = sum(measurements) / len(measurements)
             if not (0.7 * avg_distance < self.distance < 1.3 * avg_distance):
+                self.adjust_distance_counter += 1
                 self.distance = measurements[-1]
                 self.sensor_measurements.update_logs_table(
-                    {str(datetime.now()): "distance measurement disturbed (result not consistent with recent result)"})
+                    {str(datetime.now()): "distance measurement disturbed (result not consistent with recent data)"})
             else:
                 pass
+        elif self.adjust_distance_counter > 5:
+            self.sensor_measurements.reset_distance_table()
+            self.adjust_distance_counter = 0
         else:
             pass
