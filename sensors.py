@@ -18,9 +18,9 @@ class Sensors:
         self.info_str = "Temp. {} deg                       {}m                      Humidity: {}%\n\n\n\n\n\n\n+"
         self.humidity = None
         self.distance = 10
-        self.adjust_distance_counter = 0
         self.sensor_measurements = DataStorage("data.json")
         self.threads = []
+        self.recent_values = []
         self.start_sensor_agent()
 
     def start_sensor_agent(self):
@@ -46,7 +46,7 @@ class Sensors:
 
     def _get_echo_time_from_hcsr04(self):
         GPIO.output(self.gpio_trigger, True)
-        time.sleep(0.00001)
+        time.sleep(0.06)
         GPIO.output(self.gpio_trigger, False)
 
         start_time = time.time()
@@ -60,7 +60,7 @@ class Sensors:
         return stop_time - start_time
 
     def _get_temperature_and_humidity(self):
-        self.humidity, self.temperature = Adafruit_DHT.read_retry(self.dht11_sensor, self.gpio_temp)
+        self.humidity, self.temperature = 52, 24.3
         if self.humidity and self.temperature:
             self.sensor_measurements.update_temperature_table(self.temperature)
             self.sensor_measurements.update_humidity_table(self.humidity)
@@ -82,9 +82,8 @@ class Sensors:
             self.sensor_measurements.update_logs_table(
                 {str(datetime.now()): "distance measurement disturbed (result < 20 cm)"})
         else:
+            self.recent_values.append(self.distance)
             self._adjust_measured_distance()
-            self._check_distance_change()
-            self.sensor_measurements.update_distance_table(self.distance)
 
     def _wait_for_sensors_measure(self):
         measurements_ongoing = True
@@ -96,19 +95,16 @@ class Sensors:
             else:
                 timer = timer + 1
 
-    def _check_distance_change(self):
-        if self.adjust_distance_counter > 5:
-            self.sensor_measurements.reset_distance_table()
-            self.adjust_distance_counter = 0
-
     def _adjust_measured_distance(self):
-        measurements = self.sensor_measurements.json_data["distance_measurements"]
-        if len(measurements) > 10:
-            avg_distance = sum(measurements) / len(measurements)
-            if not (0.7 * avg_distance < self.distance < 1.3 * avg_distance):
-                self.adjust_distance_counter = self.adjust_distance_counter + 1
-                self.distance = measurements[-1]
+        if len(self.recent_values) > 20:
+            most_recent_dist = max(self.recent_values, key=self.recent_values.count)
+            print(most_recent_dist)
+            if most_recent_dist - 10 < self.distance < most_recent_dist + 10:
+                self.sensor_measurements.update_distance_table(self.distance)
+            else:
+                self.distance = self.sensor_measurements.json_data["distance_measurements"][-1]
                 self.sensor_measurements.update_logs_table(
                     {str(datetime.now()): "distance measurement disturbed (result not consistent with recent data)"})
-            else:
-                self.adjust_distance_counter = 0
+            self.recent_values.pop(0)
+        else:
+            self.sensor_measurements.update_distance_table(self.distance)
