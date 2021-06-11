@@ -21,22 +21,30 @@ class Sensors:
         self.sensor_measurements = DataStorage("data.json")
         self.threads = []
         self.recent_values = []
-        self.start_sensor_agent()
+        self.start_sensors_agent()
 
-    def start_sensor_agent(self):
+    def start_sensors_agent(self):
         self.prepare_gpio_ports()
-        self.threads.append(threading.Thread(target=self.update_distance_temp_and_humidity, args=[]))
+        self.threads.append(threading.Thread(target=self.update_temperature_and_humidity(), args=[]))
+        self.threads[-1].daemon = True
+        self.threads[-1].start()
+        self.threads.append(threading.Thread(target=self.update_distance_value, args=[]))
         self.threads[-1].daemon = True
         self.threads[-1].start()
         self._wait_for_sensors_measure()
 
-    def update_distance_temp_and_humidity(self):
+    def update_distance_value(self):
         while True:
             self._get_temperature_and_humidity()
             self._calculate_distance_based_on_temperature()
             self._validate_distance_measurement()
             self.camera_obj.annotate_text = self.info_str.format(self.temperature, str(round(self.distance) / 100),
                                                                  self.humidity)
+
+    def update_temperature_and_humidity(self):
+        while True:
+            self._get_temperature_and_humidity()
+            time.sleep(60)
 
     def prepare_gpio_ports(self):
         self.dht11_sensor = Adafruit_DHT.DHT11
@@ -60,7 +68,7 @@ class Sensors:
         return stop_time - start_time
 
     def _get_temperature_and_humidity(self):
-        self.humidity, self.temperature = 52, 24.3
+        self.humidity, self.temperature = Adafruit_DHT.read_retry(self.dht11_sensor, self.gpio_temp)
         if self.humidity and self.temperature:
             self.sensor_measurements.update_temperature_table(self.temperature)
             self.sensor_measurements.update_humidity_table(self.humidity)
@@ -70,7 +78,7 @@ class Sensors:
             self.sensor_measurements.update_logs_table(
                 {str(datetime.now()): "temperature or humidity measurement error"})
             GPIO.cleanup()
-            self.start_sensor_agent()
+            self.start_sensors_agent()
 
     def _calculate_distance_based_on_temperature(self):
         sound_speed = 331.5 + 0.6 * self.temperature
